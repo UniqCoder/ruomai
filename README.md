@@ -1,4 +1,4 @@
-# 🚀 Ruom - AI Content Repurposing for Indian Creators
+# 🚀 Ruom - AI Content Repurposing for Global Creators
 
 **Ruom** is an AI-powered content repurposing web application built specifically for Indian creators, coaches, and consultants. It takes a single piece of long-form content—such as a blog post, YouTube transcript, podcast notes, or even a raw idea—and transforms it into platform-ready outputs in under 10 seconds.
 
