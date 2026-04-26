@@ -1,0 +1,3 @@
+project_id = "qzialvaoduwiqknyqhfo"
+[functions.repurpose]
+verify_jwt = false
