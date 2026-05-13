@@ -9,7 +9,15 @@ export const ConfirmEmail = () => {
 
   useEffect(() => {
     const confirmEmail = async () => {
-      const token = searchParams.get("token");
+      // Supabase might have already established the session via the hash fragment
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        toast.success("Email confirmed successfully!");
+        navigate("/dashboard");
+        return;
+      }
+
+      const token = searchParams.get("token") || searchParams.get("token_hash");
       const type = searchParams.get("type");
 
       if (token) {

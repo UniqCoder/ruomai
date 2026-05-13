@@ -1,11 +1,17 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const TopNav = () => {
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user, signOut, loading } = useAuth();
   const linkCls = (active: boolean) =>
     `text-sm transition-colors ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
@@ -20,7 +26,7 @@ export const TopNav = () => {
           {!loading && user && (
             <>
               <Link to="/dashboard" className={linkCls(pathname === "/dashboard")}>Dashboard</Link>
-              <button onClick={signOut} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={handleLogout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Logout
               </button>
             </>

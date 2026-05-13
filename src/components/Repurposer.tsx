@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Sparkles, Eye, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OutputCard, SkeletonCard } from "@/components/OutputCard";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { PlatformPreview } from "@/components/PlatformPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const FORMATS = [
   { key: "tweet_thread", label: "Tweet thread" },
@@ -20,8 +23,15 @@ const TONES = ["Professional", "Casual", "Witty", "Inspirational"] as const;
 
 const FREE_LIMIT = 5;
 
+interface UserPreferences {
+  preferred_tone: string;
+  preferred_language: "EN" | "HI";
+  preferred_formats: string[];
+}
+
 export const Repurposer = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [content, setContent] = useState("");
   const [tone, setTone] = useState<string>("Casual");
   const [language, setLanguage] = useState<"EN" | "HI">("EN");
@@ -32,11 +42,14 @@ export const Repurposer = () => {
   const [overLimit, setOverLimit] = useState(false);
   const [usesRemaining, setUsesRemaining] = useState(FREE_LIMIT);
   const [loadingUsage, setLoadingUsage] = useState(true);
+  const [viewMode, setViewMode] = useState<"raw" | "preview">("preview");
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Fetch usage from database on mount
+  // Fetch usage and preferences from database on mount
   useEffect(() => {
     if (user) {
       fetchUsage();
+      fetchUserPreferences();
     } else {
       setUsesRemaining(FREE_LIMIT);
       setLoadingUsage(false);
@@ -56,11 +69,59 @@ export const Repurposer = () => {
     }
   };
 
+  const fetchUserPreferences = async () => {
+    try {
+      const { data: prefs } = await supabase
+        .from('user_preferences' as any)
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (prefs) {
+        // Apply saved preferences
+        if (prefs.preferred_tone) setTone(prefs.preferred_tone);
+        if (prefs.preferred_language) setLanguage(prefs.preferred_language);
+        if (prefs.preferred_formats?.length > 0) setSelected(prefs.preferred_formats);
+        toast.success("Loaded your brand voice preferences!", { duration: 2000 });
+      }
+    } catch (error) {
+      // No preferences saved yet, use defaults
+      console.log('No preferences found');
+    }
+  };
+
+  const saveUserPreferences = async () => {
+    if (!user) return;
+    setSavingPrefs(true);
+    try {
+      await (supabase.from('user_preferences' as any) as any)
+        .upsert({
+          user_id: user.id,
+          preferred_tone: tone,
+          preferred_language: language,
+          preferred_formats: selected,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      toast.success("Brand voice saved! We'll remember your style.", { duration: 3000 });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
   const toggleFormat = (key: string) => {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
   const handleSubmit = async () => {
+    if (authLoading) {
+      return;
+    }
+    if (!user) {
+      navigate("/signup");
+      return;
+    }
     if (!content.trim() || content.trim().length < 5) {
       toast.error("Paste some content first (at least 5 characters)");
       return;
@@ -104,6 +165,11 @@ export const Repurposer = () => {
 
       // Update local state
       setUsesRemaining((prev) => Math.max(0, prev - 1));
+      
+      // Auto-save preferences after successful repurpose
+      if (user) {
+        saveUserPreferences();
+      }
       
       if (usesRemaining - 1 === 0) {
         toast.success("That was your last free repurpose! Upgrade for unlimited.");
@@ -232,9 +298,45 @@ export const Repurposer = () => {
 
       {/* Results */}
       {(loading || outputs) && (
-        <div className="mt-8 space-y-3">
-          {loading && selected.map((k) => <SkeletonCard key={k} />)}
-          {outputs && Object.entries(outputs).map(([k, v]) => renderOutput(k, v))}
+        <div className="mt-8">
+          {loading && (
+            <div className="space-y-3">
+              {selected.map((k) => <SkeletonCard key={k} />)}
+            </div>
+          )}
+          
+          {outputs && (
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "raw" | "preview")} className="w-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <span className="font-semibold">Your repurposed content</span>
+                </div>
+                <TabsList className="grid w-[200px] grid-cols-2">
+                  <TabsTrigger value="preview" className="flex items-center gap-1.5 text-xs">
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </TabsTrigger>
+                  <TabsTrigger value="raw" className="flex items-center gap-1.5 text-xs">
+                    <FileText className="h-3.5 w-3.5" />
+                    Raw
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              
+              <TabsContent value="raw" className="space-y-3">
+                {Object.entries(outputs).map(([k, v]) => renderOutput(k, v))}
+              </TabsContent>
+              
+              <TabsContent value="preview">
+                <PlatformPreview 
+                  content={Object.values(outputs).join('\n\n')} 
+                  userName={user?.user_metadata?.full_name || 'You'}
+                  userHandle={user?.email?.split('@')[0] || 'creator'}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       )}
 

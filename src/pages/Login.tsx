@@ -28,7 +28,12 @@ export const Login = () => {
       toast.success("Logged in successfully!");
       navigate("/dashboard");
     } catch (error: any) {
-      toast.error(error.message || "Failed to login");
+      if (error.message === "Email not confirmed") {
+        toast.error("Please confirm your email before logging in.");
+        navigate(`/email-confirmation?email=${encodeURIComponent(email)}`);
+      } else {
+        toast.error(error.message || "Failed to login");
+      }
     } finally {
       setLoading(false);
     }
