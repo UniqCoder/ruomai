@@ -12,6 +12,9 @@ export const EmailConfirmation = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
   const handleResendEmail = async () => {
     if (!email) {
       toast.error("Email not found. Please sign up again.");
@@ -28,15 +31,15 @@ export const EmailConfirmation = () => {
 
       if (error) throw error;
       toast.success("Confirmation email resent!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to resend email");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to resend email"));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md text-center">
         <CardHeader className="space-y-4">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">

@@ -1,0 +1,27 @@
+{
+  "1. Hand-Engineered (20-D) - LogReg": {
+    "accuracy": 0.9867,
+    "f1_score": 0.9889,
+    "roc_auc": 1.0
+  },
+  "2. Dense Embeddings - LogReg": {
+    "accuracy": 0.9867,
+    "f1_score": 0.9889,
+    "roc_auc": 1.0
+  },
+  "3. Dense Embeddings - MLP (64, 32)": {
+    "accuracy": 0.9067,
+    "f1_score": 0.9193,
+    "roc_auc": 0.9475
+  },
+  "4. Hybrid (Features + Embeddings) - LogReg": {
+    "accuracy": 0.9867,
+    "f1_score": 0.9889,
+    "roc_auc": 1.0
+  },
+  "5. Hybrid - MLP (64, 32)": {
+    "accuracy": 0.9867,
+    "f1_score": 0.9889,
+    "roc_auc": 0.9955
+  }
+}

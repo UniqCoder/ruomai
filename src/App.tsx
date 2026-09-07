@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AsciiFluidBg } from "@/components/AsciiFluidBg";
 import Index from "./pages/Index.tsx";
 import Pricing from "./pages/Pricing.tsx";
 import { Login } from "./pages/Login.tsx";
@@ -19,6 +20,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        {/* site-wide interactive fluid backdrop, behind every route */}
+        <AsciiFluidBg className="fixed inset-0 -z-10" />
         <Toaster />
         <Sonner />
         <BrowserRouter>

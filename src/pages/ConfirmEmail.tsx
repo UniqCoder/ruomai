@@ -7,6 +7,9 @@ export const ConfirmEmail = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
   useEffect(() => {
     const confirmEmail = async () => {
       // Supabase might have already established the session via the hash fragment
@@ -31,8 +34,8 @@ export const ConfirmEmail = () => {
 
           toast.success("Email confirmed successfully!");
           navigate("/dashboard");
-        } catch (error: any) {
-          toast.error(error.message || "Failed to confirm email");
+        } catch (error: unknown) {
+          toast.error(getErrorMessage(error, "Failed to confirm email"));
           navigate("/login");
         }
       } else {

@@ -13,6 +13,9 @@ export const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -27,12 +30,12 @@ export const Login = () => {
       
       toast.success("Logged in successfully!");
       navigate("/dashboard");
-    } catch (error: any) {
-      if (error.message === "Email not confirmed") {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "Email not confirmed") {
         toast.error("Please confirm your email before logging in.");
         navigate(`/email-confirmation?email=${encodeURIComponent(email)}`);
       } else {
-        toast.error(error.message || "Failed to login");
+        toast.error(getErrorMessage(error, "Failed to login"));
       }
     } finally {
       setLoading(false);
@@ -50,14 +53,14 @@ export const Login = () => {
       });
       
       if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message || "Failed to login with Google");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to login with Google"));
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>

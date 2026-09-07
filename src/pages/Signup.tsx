@@ -14,12 +14,15 @@ export const Signup = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -31,10 +34,16 @@ export const Signup = () => {
       });
       
       if (error) throw error;
-      
+
+      if (data.session) {
+        toast.success("Account created successfully!");
+        navigate("/dashboard");
+        return;
+      }
+
       navigate(`/email-confirmation?email=${encodeURIComponent(email)}`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create account");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create account"));
     } finally {
       setLoading(false);
     }
@@ -51,14 +60,14 @@ export const Signup = () => {
       });
       
       if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message || "Failed to sign up with Google");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to sign up with Google"));
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>

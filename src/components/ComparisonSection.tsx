@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { X, Check, Sparkles, Crown, Zap, Target, Globe, Bot } from "lucide-react";
+import { X, Check, Sparkles, Crown, Zap, Target, Globe, Bot, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const comparisonData = [
   {
@@ -39,7 +40,7 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.15,
+      staggerChildren: 0.12,
       delayChildren: 0.2,
     },
   },
@@ -71,17 +72,14 @@ const headerVariants = {
 
 export const ComparisonSection = () => {
   return (
-    <section className="py-24 md:py-32 relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/20 to-background" />
-      
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <section className="py-24 md:py-32 relative isolate overflow-hidden">
+      {/* ambient glows, layered over the fluid field */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
         <motion.div
-          className="absolute top-20 left-10 w-72 h-72 bg-primary/5 rounded-full blur-3xl"
+          className="absolute top-20 left-10 w-72 h-72 bg-primary/[0.06] rounded-full blur-3xl"
           animate={{
             scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
+            opacity: [0.4, 0.7, 0.4],
           }}
           transition={{
             duration: 8,
@@ -90,10 +88,10 @@ export const ComparisonSection = () => {
           }}
         />
         <motion.div
-          className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl"
+          className="absolute bottom-20 right-10 w-96 h-96 bg-orange-500/[0.06] rounded-full blur-3xl"
           animate={{
             scale: [1.2, 1, 1.2],
-            opacity: [0.3, 0.5, 0.3],
+            opacity: [0.4, 0.7, 0.4],
           }}
           transition={{
             duration: 10,
@@ -113,7 +111,7 @@ export const ComparisonSection = () => {
           className="text-center mb-16"
         >
           <motion.div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/25 mb-6 backdrop-blur-sm"
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400 }}
           >
@@ -121,10 +119,10 @@ export const ComparisonSection = () => {
             <span className="text-sm font-medium text-primary">Why RUOM Wins</span>
           </motion.div>
 
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
             Not just another
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-purple-500 to-pink-500">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-amber-400">
               AI tool
             </span>
           </h2>
@@ -133,63 +131,69 @@ export const ComparisonSection = () => {
           </p>
         </motion.div>
 
-        {/* Comparison Cards */}
+        {/* Comparison table */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
-          className="space-y-4"
+          className="relative rounded-3xl border border-border/60 bg-card/40 backdrop-blur-md shadow-2xl shadow-black/40 overflow-hidden"
         >
-          {/* Table Header */}
-          <div className="hidden md:grid grid-cols-3 gap-4 px-6 py-4 text-sm font-medium text-muted-foreground">
+          {/* spotlight on the RUOM column */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 hidden md:block w-1/3 bg-gradient-to-b from-primary/[0.08] via-primary/[0.04] to-transparent border-l border-primary/15" />
+          <div className="h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+
+          {/* Table header */}
+          <div className="relative hidden md:grid grid-cols-3 gap-4 px-7 py-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground border-b border-border/60 bg-white/[0.02]">
             <div>Feature</div>
             <div className="text-center">Generic AI (ChatGPT/Claude)</div>
-            <div className="text-center text-primary">RUOM AI</div>
+            <div className="text-center text-primary flex items-center justify-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              RUOM AI
+            </div>
           </div>
 
-          {/* Comparison Rows */}
-          {comparisonData.map((item, index) => {
+          {/* Rows */}
+          {comparisonData.map((item) => {
             const Icon = item.icon;
             return (
               <motion.div
                 key={item.feature}
                 variants={rowVariants}
-                whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-                className="group relative"
+                whileHover={{ scale: 1.01 }}
+                transition={{ duration: 0.2 }}
+                className="group relative grid md:grid-cols-3 gap-3 md:gap-4 items-center px-5 md:px-7 py-5 border-b border-border/40 last:border-b-0 hover:bg-white/[0.025] transition-colors"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-purple-500/5 to-pink-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                
-                <div className="relative grid md:grid-cols-3 gap-4 items-center p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
-                  {/* Feature */}
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <span className="font-semibold">{item.feature}</span>
+                {/* Feature */}
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/15 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
+                  <span className="font-semibold text-foreground">{item.feature}</span>
+                </div>
 
-                  {/* Generic AI */}
-                  <div className="flex items-center gap-3 md:justify-center p-3 md:p-0 rounded-lg bg-destructive/5 md:bg-transparent">
-                    <div className="p-1.5 rounded-full bg-destructive/20">
-                      <X className="h-4 w-4 text-destructive" />
-                    </div>
-                    <span className="text-muted-foreground text-sm">{item.generic}</span>
+                {/* Generic AI */}
+                <div className="flex items-center gap-3 md:justify-center">
+                  <div className="p-1.5 rounded-full bg-destructive/15 shrink-0">
+                    <X className="h-4 w-4 text-destructive" />
                   </div>
+                  <span className="text-foreground/60 text-sm line-through decoration-destructive/40 md:no-underline">
+                    {item.generic}
+                  </span>
+                </div>
 
-                  {/* RUOM */}
-                  <div className="flex items-center gap-3 md:justify-center p-3 md:p-0 rounded-lg bg-emerald-500/10 md:bg-transparent border border-emerald-500/20 md:border-0">
-                    <motion.div
-                      className="p-1.5 rounded-full bg-emerald-500/20"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <Check className="h-4 w-4 text-emerald-500" />
-                    </motion.div>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400 text-sm">
-                      {item.ruom}
-                    </span>
-                  </div>
+                {/* RUOM */}
+                <div className="relative flex items-center gap-3 md:justify-center md:px-4 py-2 md:py-0 rounded-xl md:rounded-none">
+                  <motion.div
+                    className="p-1.5 rounded-full bg-emerald-500/20 shrink-0"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <Check className="h-4 w-4 text-emerald-400" />
+                  </motion.div>
+                  <span className="font-medium text-emerald-400 text-sm">
+                    {item.ruom}
+                  </span>
                 </div>
               </motion.div>
             );
@@ -205,7 +209,7 @@ export const ComparisonSection = () => {
           className="mt-16 text-center"
         >
           <motion.div
-            className="inline-flex flex-col sm:flex-row items-center gap-4 p-6 bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-primary/20"
+            className="inline-flex flex-col sm:flex-row items-center gap-4 p-6 bg-card/50 backdrop-blur-md rounded-2xl border border-primary/25 shadow-lg shadow-primary/5"
             whileHover={{ scale: 1.02 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
@@ -213,7 +217,7 @@ export const ComparisonSection = () => {
               {[1, 2, 3, 4].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 border-2 border-background flex items-center justify-center text-xs font-bold text-white"
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-600 border-2 border-background flex items-center justify-center text-xs font-bold text-white"
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
@@ -225,8 +229,15 @@ export const ComparisonSection = () => {
             </div>
             <div className="text-left">
               <p className="font-semibold">Join 2,000+ creators who switched</p>
-              <p className="text-sm text-muted-foreground">No credit card required • 5 free repurposes</p>
+              <p className="text-sm text-muted-foreground">No credit card required. Instant drafts, no trial wall.</p>
             </div>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 px-5 h-11 rounded-xl bg-gradient-to-r from-primary to-orange-600 text-primary-foreground text-sm font-semibold glow-orange"
+            >
+              Start free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </motion.div>
         </motion.div>
       </div>

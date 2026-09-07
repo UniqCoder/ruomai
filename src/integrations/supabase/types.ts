@@ -14,13 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          id: string
+          email: string | null
+          full_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          full_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          full_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      usage_history: {
+        Row: {
+          id: string
+          user_id: string
+          input_content: string
+          tone: string
+          language: string
+          outputs: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          input_content: string
+          tone: string
+          language: string
+          outputs: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          input_content?: string
+          tone?: string
+          language?: string
+          outputs?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          plan: "free" | "creator" | "pro"
+          status: "active" | "cancelled" | "past_due"
+          razorpay_subscription_id: string | null
+          current_period_start: string | null
+          current_period_end: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan: "free" | "creator" | "pro"
+          status: "active" | "cancelled" | "past_due"
+          razorpay_subscription_id?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan?: "free" | "creator" | "pro"
+          status?: "active" | "cancelled" | "past_due"
+          razorpay_subscription_id?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monthly_usage: {
+        Row: {
+          id: string
+          user_id: string
+          year: number
+          month: number
+          count: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          year: number
+          month: number
+          count?: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          year?: number
+          month?: number
+          count?: number
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          preferred_tone: string | null
+          preferred_language: string | null
+          preferred_formats: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          preferred_tone?: string | null
+          preferred_language?: string | null
+          preferred_formats?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          preferred_tone?: string | null
+          preferred_language?: string | null
+          preferred_formats?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_month_usage: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
+      increment_usage: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,15 +1,13 @@
-import { useState, useEffect } from "react";
-import { ArrowUpRight, Sparkles, Eye, FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { AlertTriangle, ArrowUpRight, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OutputCard, SkeletonCard } from "@/components/OutputCard";
-import { UpgradeModal } from "@/components/UpgradeModal";
-import { PlatformPreview } from "@/components/PlatformPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Tables } from "@/integrations/supabase/types";
 
 const FORMATS = [
   { key: "tweet_thread", label: "Tweet thread" },
@@ -21,7 +19,41 @@ const FORMATS = [
 
 const TONES = ["Professional", "Casual", "Witty", "Inspirational"] as const;
 
-const FREE_LIMIT = 5;
+export type CandidateVariant = {
+  title?: string;
+  text: string;
+};
+
+export type FormattedOutput = {
+  primary: string;
+  candidates: CandidateVariant[];
+};
+
+export type OutputValue = FormattedOutput | string | string[];
+export type OutputMap = Record<string, OutputValue>;
+
+interface RepurposeResponse {
+  outputs?: OutputMap;
+  error?: string;
+  code?: string;
+  failedFormats?: string[];
+}
+
+const MIN_CONTENT_CHARS = 60;
+const MIN_CONTENT_WORDS = 12;
+const MAX_CONTENT_CHARS = 12000;
+
+const validateContent = (content: string): string | null => {
+  const trimmed = content.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (trimmed.length < MIN_CONTENT_CHARS || words.length < MIN_CONTENT_WORDS) {
+    return `Add a bit more substance — paste at least a short paragraph (${MIN_CONTENT_CHARS}+ characters) so the AI has real material to work with.`;
+  }
+  if (trimmed.length > MAX_CONTENT_CHARS) {
+    return `That's a lot! Trim it under ${MAX_CONTENT_CHARS} characters.`;
+  }
+  return null;
+};
 
 interface UserPreferences {
   preferred_tone: string;
@@ -30,81 +62,59 @@ interface UserPreferences {
 }
 
 export const Repurposer = () => {
-  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [content, setContent] = useState("");
   const [tone, setTone] = useState<string>("Casual");
   const [language, setLanguage] = useState<"EN" | "HI">("EN");
   const [selected, setSelected] = useState<string[]>(FORMATS.map((f) => f.key));
   const [loading, setLoading] = useState(false);
-  const [outputs, setOutputs] = useState<Record<string, any> | null>(null);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [overLimit, setOverLimit] = useState(false);
-  const [usesRemaining, setUsesRemaining] = useState(FREE_LIMIT);
-  const [loadingUsage, setLoadingUsage] = useState(true);
-  const [viewMode, setViewMode] = useState<"raw" | "preview">("preview");
+  const [outputs, setOutputs] = useState<OutputMap | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Fetch usage and preferences from database on mount
-  useEffect(() => {
-    if (user) {
-      fetchUsage();
-      fetchUserPreferences();
-    } else {
-      setUsesRemaining(FREE_LIMIT);
-      setLoadingUsage(false);
-    }
-  }, [user]);
+  const fetchUserPreferences = useCallback(async () => {
+    if (!user?.id) return;
 
-  const fetchUsage = async () => {
-    try {
-      const { data: usage } = await supabase
-        .rpc('get_current_month_usage' as any, { p_user_id: user?.id });
-      const count = usage || 0;
-      setUsesRemaining(Math.max(0, FREE_LIMIT - count));
-    } catch (error) {
-      console.error('Error fetching usage:', error);
-    } finally {
-      setLoadingUsage(false);
-    }
-  };
-
-  const fetchUserPreferences = async () => {
     try {
       const { data: prefs } = await supabase
-        .from('user_preferences' as any)
-        .select('*')
-        .eq('user_id', user?.id)
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user.id)
         .single();
-      
+
       if (prefs) {
-        // Apply saved preferences
-        if (prefs.preferred_tone) setTone(prefs.preferred_tone);
-        if (prefs.preferred_language) setLanguage(prefs.preferred_language);
-        if (prefs.preferred_formats?.length > 0) setSelected(prefs.preferred_formats);
-        toast.success("Loaded your brand voice preferences!", { duration: 2000 });
+        const typedPrefs = prefs as Tables<"user_preferences">;
+        if (typedPrefs.preferred_tone) setTone(typedPrefs.preferred_tone);
+        if (typedPrefs.preferred_language) setLanguage(typedPrefs.preferred_language as "EN" | "HI");
+        if (typedPrefs.preferred_formats?.length > 0) setSelected(typedPrefs.preferred_formats);
       }
-    } catch (error) {
-      // No preferences saved yet, use defaults
-      console.log('No preferences found');
+    } catch {
+      // No saved preferences yet.
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) void fetchUserPreferences();
+  }, [user?.id, fetchUserPreferences]);
 
   const saveUserPreferences = async () => {
     if (!user) return;
     setSavingPrefs(true);
     try {
-      await (supabase.from('user_preferences' as any) as any)
-        .upsert({
+      const { error } = await supabase.from("user_preferences").upsert(
+        {
           user_id: user.id,
           preferred_tone: tone,
           preferred_language: language,
           preferred_formats: selected,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
-      toast.success("Brand voice saved! We'll remember your style.", { duration: 3000 });
+        },
+        { onConflict: "user_id" },
+      );
+
+      if (error) throw error;
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error("Error saving preferences:", error);
     } finally {
       setSavingPrefs(false);
     }
@@ -114,86 +124,137 @@ export const Repurposer = () => {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
-  const handleSubmit = async () => {
-    if (authLoading) {
-      return;
-    }
-    if (!user) {
-      navigate("/signup");
-      return;
-    }
-    if (!content.trim() || content.trim().length < 5) {
-      toast.error("Paste some content first (at least 5 characters)");
-      return;
-    }
-    if (selected.length === 0) {
-      toast.error("Select at least one output format");
-      return;
-    }
-
-    // Check usage limit
-    if (usesRemaining <= 0) {
-      setOverLimit(true);
-      setShowUpgrade(true);
-      return;
-    }
-
+  const generate = async () => {
     setLoading(true);
-    setOutputs(null);
+    setError(null);
+
     try {
-      const { data, error } = await supabase.functions.invoke("repurpose", {
-        body: { content, tone, language, formats: selected },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const requestBody = { content: content.trim(), tone, language, formats: selected };
+      let data: RepurposeResponse | null;
 
-      setOutputs((data as any).outputs);
-
-      // Increment usage in database
-      if (user) {
-        await supabase.rpc('increment_usage' as any, { p_user_id: user.id });
-
-        // Save to usage history
-        await (supabase.from('usage_history' as any) as any).insert({
-          user_id: user.id,
-          input_content: content,
-          tone,
-          language,
-          outputs: (data as any).outputs,
+      if (import.meta.env.DEV) {
+        // Local dev: the Vite server proxies to Gemini with the key kept
+        // server-side (see vite.config.ts). The key is never sent to the browser.
+        const res = await fetch("/api/repurpose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
         });
+        data = (await res.json().catch(() => null)) as RepurposeResponse | null;
+        if (!res.ok) {
+          throw new Error(data?.error || "The AI engine is unreachable right now. Please try again in a moment.");
+        }
+      } else {
+        // Production: the deployed Supabase edge function holds the AI keys.
+        const invokeResult = (await supabase.functions.invoke("repurpose", {
+          body: requestBody,
+        })) as { data: RepurposeResponse | null; error: unknown };
+
+        if (invokeResult.error) {
+          // functions.invoke wraps non-2xx responses in FunctionsHttpError;
+          // the server's { error } body lives on error.context
+          let fnMessage: string | null = null;
+          const context = (invokeResult.error as { context?: Response }).context;
+          if (context && typeof context.json === "function") {
+            try {
+              const body = (await context.json()) as { error?: string };
+              fnMessage = body?.error ?? null;
+            } catch {
+              // response body wasn't JSON
+            }
+          }
+          if (!fnMessage && typeof invokeResult.error === "object" && "message" in invokeResult.error) {
+            fnMessage = String((invokeResult.error as { message: unknown }).message);
+          }
+          throw new Error(fnMessage || "The AI engine is unreachable right now. Please try again in a moment.");
+        }
+        data = invokeResult.data;
       }
 
-      // Update local state
-      setUsesRemaining((prev) => Math.max(0, prev - 1));
-      
-      // Auto-save preferences after successful repurpose
+      if (data?.error) throw new Error(data.error);
+      if (!data?.outputs || Object.keys(data.outputs).length === 0) {
+        throw new Error("The AI returned an empty result. Try again or tweak your input.");
+      }
+
+      setOutputs(data.outputs);
+      setError(null);
+
+      if (data.failedFormats?.length) {
+        const labels = data.failedFormats
+          .map((f) => FORMATS.find((x) => x.key === f)?.label ?? f)
+          .join(", ");
+        toast.info(`Some formats are busy right now (${labels}) — run it again in a moment for the rest.`);
+      }
+
       if (user) {
-        saveUserPreferences();
+        try {
+          const { error: historyError } = await supabase.from("usage_history").insert({
+            user_id: user.id,
+            input_content: content.trim(),
+            tone,
+            language,
+            outputs: data.outputs,
+          });
+          if (historyError) throw historyError;
+        } catch (persistenceError) {
+          console.warn("Could not persist repurpose usage:", persistenceError);
+        }
+
+        void saveUserPreferences();
       }
-      
-      if (usesRemaining - 1 === 0) {
-        toast.success("That was your last free repurpose! Upgrade for unlimited.");
-        setOverLimit(true);
+    } catch (generateError) {
+      const message =
+        generateError instanceof Error
+          ? generateError.message
+          : "Something went wrong while repurposing. Please try again.";
+
+      if (outputs) {
+        // keep previously generated content on screen, surface a toast
+        toast.error(message);
       } else {
-        toast.success(`${usesRemaining - 1} free ${usesRemaining - 1 === 1 ? 'repurpose' : 'repurposes'} remaining`);
+        setError(message);
       }
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const renderOutput = (key: string, value: any) => {
+  const handleSubmit = async () => {
+    if (authLoading && user) {
+      toast("Finishing sign-in. Try again in a moment.");
+      return;
+    }
+
+    const validationError = validateContent(content);
+    if (validationError) {
+      setError(validationError);
+      toast.warning(validationError);
+      return;
+    }
+
+    if (selected.length === 0) {
+      const msg = "Select at least one output format";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    await generate();
+  };
+
+  const renderOutput = (key: string, value: OutputValue) => {
     const label = FORMATS.find((f) => f.key === key)?.label || key;
-    const text = Array.isArray(value) ? value.map((t, i) => `${i + 1}. ${t}`).join("\n\n") : String(value);
-    return <OutputCard key={key} label={label} text={text} blurred={overLimit} />;
+    if (Array.isArray(value)) {
+      return <OutputCard key={key} label={label} blocks={value} text={value.join("\n\n")} />;
+    }
+    if (value && typeof value === "object" && "primary" in value) {
+      return <OutputCard key={key} label={label} text={value.primary} />;
+    }
+    return <OutputCard key={key} label={label} text={String(value || "")} />;
   };
 
   return (
     <section className="container max-w-3xl py-12 md:py-20">
-      {/* Hero */}
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
           One piece of content.
@@ -201,25 +262,10 @@ export const Repurposer = () => {
           <span className="text-primary">Ruom it everywhere.</span>
         </h1>
         <p className="mt-5 text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
-          Paste anything. Get tweets, reels, LinkedIn posts and more in 10 seconds.
+          Paste anything. Get tweets, reels, LinkedIn posts and more in seconds.
         </p>
       </div>
 
-      {/* Uses remaining badge */}
-      <div className="flex justify-center mb-4">
-        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-          usesRemaining === 0 
-            ? "bg-destructive/10 text-destructive border border-destructive/20" 
-            : usesRemaining <= 2 
-              ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
-              : "bg-primary/10 text-primary border border-primary/20"
-        }`}>
-          <span>{usesRemaining === 0 ? "No free uses left" : `${usesRemaining} free ${usesRemaining === 1 ? 'use' : 'uses'} remaining`}</span>
-          {usesRemaining === 0 && <span className="text-[10px] opacity-75">— Upgrade to continue</span>}
-        </div>
-      </div>
-
-      {/* Input area */}
       <div className="rounded-2xl border border-border bg-card p-4 md:p-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs uppercase tracking-wider text-muted-foreground">Your content</span>
@@ -241,106 +287,111 @@ export const Repurposer = () => {
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Paste your blog post, YouTube transcript, podcast notes, or raw idea here..."
+          placeholder="Paste your blog post, YouTube transcript, podcast notes, or raw idea here — at least a short paragraph works best..."
           className="min-h-[180px] resize-y bg-background border-border text-base focus-visible:ring-primary"
         />
 
-        {/* Format chips */}
         <div className="mt-5">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Output formats</div>
           <div className="flex flex-wrap gap-2">
-            {FORMATS.map((f) => {
-              const active = selected.includes(f.key);
+            {FORMATS.map((format) => {
+              const active = selected.includes(format.key);
               return (
                 <button
-                  key={f.key}
-                  onClick={() => toggleFormat(f.key)}
+                  key={format.key}
+                  onClick={() => toggleFormat(format.key)}
                   className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
                     active
                       ? "bg-primary/10 border-primary text-primary"
                       : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   }`}
                 >
-                  {f.label}
+                  {format.label}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Tone selector */}
         <div className="mt-5">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Tone</div>
           <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border p-1 bg-background">
-            {TONES.map((t) => (
+            {TONES.map((currentTone) => (
               <button
-                key={t}
-                onClick={() => setTone(t)}
+                key={currentTone}
+                onClick={() => setTone(currentTone)}
                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  tone === t ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
+                  tone === currentTone ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t}
+                {currentTone}
               </button>
             ))}
           </div>
         </div>
 
-        {/* CTA */}
         <Button
           onClick={handleSubmit}
           disabled={loading}
           className="mt-6 w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground glow-orange"
         >
-          {loading ? "Ruoming..." : (<>Ruom It <ArrowUpRight className="ml-1 h-4 w-4" /></>)}
+          {loading ? "Ruoming..." : (
+            <>
+              Ruom It <ArrowUpRight className="ml-1 h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
 
-      {/* Results */}
-      {(loading || outputs) && (
-        <div className="mt-8">
+      {(loading || outputs || error) && (
+        <div className="mt-8" aria-live="polite">
+          {error && !loading && !outputs && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4 flex flex-wrap items-center justify-between gap-4"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {error.startsWith("Add a bit more substance") || error.startsWith("That's a lot") || error.startsWith("Select at least one")
+                      ? "Almost there"
+                      : "The AI engine is unreachable"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
+                </div>
+              </div>
+              {!error.startsWith("Add a bit more substance") && !error.startsWith("That's a lot") && !error.startsWith("Select at least one") && (
+                <Button size="sm" variant="outline" onClick={generate} className="gap-1.5 shrink-0 border-primary/40 hover:bg-primary/10 hover:text-primary">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              )}
+            </motion.div>
+          )}
+
           {loading && (
             <div className="space-y-3">
-              {selected.map((k) => <SkeletonCard key={k} />)}
+              {selected.map((format) => (
+                <SkeletonCard key={format} />
+              ))}
             </div>
           )}
-          
-          {outputs && (
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "raw" | "preview")} className="w-full">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">Your repurposed content</span>
-                </div>
-                <TabsList className="grid w-[200px] grid-cols-2">
-                  <TabsTrigger value="preview" className="flex items-center gap-1.5 text-xs">
-                    <Eye className="h-3.5 w-3.5" />
-                    Preview
-                  </TabsTrigger>
-                  <TabsTrigger value="raw" className="flex items-center gap-1.5 text-xs">
-                    <FileText className="h-3.5 w-3.5" />
-                    Raw
-                  </TabsTrigger>
-                </TabsList>
+
+          {outputs && !loading && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Your repurposed content</span>
               </div>
-              
-              <TabsContent value="raw" className="space-y-3">
-                {Object.entries(outputs).map(([k, v]) => renderOutput(k, v))}
-              </TabsContent>
-              
-              <TabsContent value="preview">
-                <PlatformPreview 
-                  content={Object.values(outputs).join('\n\n')} 
-                  userName={user?.user_metadata?.full_name || 'You'}
-                  userHandle={user?.email?.split('@')[0] || 'creator'}
-                />
-              </TabsContent>
-            </Tabs>
+              <div className="space-y-3">
+                {Object.entries(outputs).map(([key, value]) => renderOutput(key, value))}
+              </div>
+            </div>
           )}
         </div>
       )}
-
-      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </section>
   );
 };
